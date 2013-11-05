@@ -4,6 +4,7 @@ module Rulers
       _, cont, action, after = env['PATH_INFO'].split('/',4)
       cont = cont.capitalize # "People"
       cont += "Controller"   # "PeopleController"
+      puts "Cont: #{cont}"
 
       [Object.const_get(cont), action]
     end
