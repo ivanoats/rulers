@@ -5,14 +5,17 @@ require "rulers/dependencies"
 
 module Rulers
   class Application
+    def redirect_to(location, status = 302)
+      [status, {"Location" => location}, []]
+    end
+
     def call(env)
       if env['PATH_INFO'] == '/favicon.ico'
         return [404,
                 {'Content-Type' => 'text/html'}, []]
       end
       if env['PATH_INFO'] == '/'
-        return [302,
-                {"Location" => "/home/index"}, []]
+        return [404, {'Content-Type' => 'text/plain'}, ["no home page yet"]]
       end
       klass, act = get_controller_and_action(env)
       controller = klass.new(env)
@@ -33,12 +36,11 @@ module Rulers
   end
 
   class Controller
+    attr_reader :env
+
     def initialize(env)
       @env = env
     end
 
-    def env
-      @env
-    end
   end
 end
