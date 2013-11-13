@@ -13,7 +13,9 @@ module Rulers
       def self.schema
         return @schema if @schema
         @schema = {}
+        puts "table is #{table}"
         DB.table_info(table) do |row|
+          STDERR.puts "this row is #{row.inspect}"
           @schema[row["name"]] = row["type"]
         end
         @schema
@@ -21,9 +23,24 @@ module Rulers
 
       def initialize(data = nil)
         @hash = data
+        # @hash.each do |attr,value|
+        #   self.class.send(:define_method, attr) do
+        #     value
+        #   end
+        # end
+      end
+
+      def method_missing(column_name)
+        STDERR.puts "in search of a method called #{column_name}"
+        self.class.send(:define_method, column_name) do
+          @hash[column_name.to_s]
+        end
+        send column_name
       end
 
       def self.to_sql(val)
+        STDERR.puts "To sql val: #{val.inspect}"
+
         case val
         when Numeric
           val.to_s
@@ -35,17 +52,31 @@ module Rulers
       end
 
       def self.create(values)
-        values.delete "id"
-        keys = schema.keys - ["id"]
-        vals = keys.map do |key|
-          values[key] ? to_sql(values[key]) :
-            "null"
-        end
+        STDERR.puts "entering self.create"
+        STDERR.puts "values: #{values.inspect}"
 
-        DB.execute <<SQL
+        values.delete "id"
+
+        STDERR.puts "schema.keys #{schema.keys.inspect}"
+        keys = schema.keys - ["id"]
+        STDERR.puts "keys should now not have id: #{keys.inspect}"
+
+
+        STDERR.puts "keys is a #{keys.class}"
+
+        vals = keys.map do |key|
+          STDERR.puts "figuring out the to_sql for #{key}."
+          values[key] ? to_sql(values[key]) : "null"
+        end
+        STDERR.puts "Our vals ends up being: #{vals.inspect}"
+
+        sql = <<SQL
 INSERT INTO #{table} (#{keys.join ","})
-  VALUES (#{vals.join ","});
+VALUES (#{vals.join ","});
 SQL
+        puts "SQL: #{sql}"
+        DB.execute sql
+
         data = Hash[keys.zip vals]
         sql = "SELECT last_insert_rowid();"
         data["id"] = DB.execute(sql)[0][0]
@@ -54,17 +85,18 @@ SQL
 
       def self.count
         DB.execute(<<SQL)[0][0]
-SELECT COUNT(*) FROM #{table}
+SELECT COUNT(*) FROM #{table};
 SQL
       end
 
       def self.find(id)
         row = DB.execute <<SQL
-select #{schema.keys.join ","} from #{table}
-where id = #{id};
+SELECT #{schema.keys.join ","} FROM #{table}
+WHERE id = #{id};
 SQL
+        STDERR.puts "row: #{row.inspect}"
         data = Hash[schema.keys.zip row[0]]
-        self.new data
+        new data
       end
 
       def [](name)
@@ -94,7 +126,7 @@ SQL
       end
 
       def save
-        self.save! rescue false
+        save! rescue false
       end
     end
   end
